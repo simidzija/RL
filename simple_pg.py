@@ -1,4 +1,3 @@
-import time
 import numpy as np
 import torch
 from torch.optim import Adam
@@ -6,37 +5,7 @@ from torch.distributions import Categorical
 import gymnasium as gym
 
 from model import Policy
-
-
-def test(env: gym.Env, policy: Policy, n_episodes: int):
-    """
-    Tests policy in environment. Returns average return per episode.
-    """
-    def test_episode():
-        obs, _ = env.reset()
-        rew_list = []
-
-        # loop over time steps
-        while True:
-            act = policy.get_action(obs)
-            obs, rew, term, trunc, _ = env.step(act)
-
-            rew_list.append(rew)
-
-            if term or trunc:
-                return sum(rew_list)
-
-    returns = []
-
-    # loop over episodes (could be parallelized)
-    for _ in range(n_episodes):
-        ret = test_episode()
-        returns.append(ret)
-
-    mean = np.mean(returns)
-    std = np.std(returns)
-            
-    return mean, std
+from testing import test
 
 def train(env: gym.Env, policy: Policy, lr: float, 
           n_batches: int, batch_size: int):
@@ -114,7 +83,6 @@ def train(env: gym.Env, policy: Policy, lr: float,
 
         # calculate average episode length (ignore last episode)
         avg_ep_len = np.mean(ep_lens[:-1]) 
-
         print(f'Batch {batch:3d}: J = {j:7.2f}, '
               f'Avg Episode Len = {avg_ep_len:5.1f}')
         
