@@ -8,13 +8,15 @@ import gymnasium as gym
 from model import Policy, Value
 from testing import test
 
-def train(env: gym.Env, policy: Policy, value: Value, 
-          lr_pol: float, lr_val: float, n_batches: int, batch_size: int):
+def vpg(env: gym.Env, policy: Policy, value: Value, 
+          lr_pol: float, lr_val: float, n_batches: int, batch_size: int,
+          val_train_steps: int, gamma: float, lambd: float):
 
     # optimizers (j = policy objective, v = value function)
     opt_pol = Adam(policy.parameters(), lr=lr_pol, maximize=True)
     opt_val = Adam(value.parameters(), lr=lr_val)
     
+    # objective functions
     def compute_policy_objective(obs, act, weight):
         logits = policy(obs)
         dist = Categorical(logits=logits)
@@ -25,6 +27,18 @@ def train(env: gym.Env, policy: Policy, value: Value,
     def compute_value_objective(val, rtg):
         loss_fn = MSELoss()
         return loss_fn(val, rtg)
+    
+    # GAE matrix containing powers of x = gamma * lambd
+    def construct_gae_matrix():
+        max_steps = env.spec.max_episode_steps
+        x = gamma * lambd
+        gae_vector = np.array([x**k for k in range(max_steps)])
+        gae_matrix = np.zeros((max_steps, max_steps))
+        for i, row in enumerate(gae_matrix):
+            row[i:] = gae_vector[:max_steps - i]
+        return gae_matrix
+    
+    gae_matrix = construct_gae_matrix()    
 
     def train_batch():
 
@@ -32,6 +46,7 @@ def train(env: gym.Env, policy: Policy, value: Value,
         obs_list = []
         act_list = []
         rtg_list = []
+        adv_list = []
         ep_len_list = []
         batch = 0
 
@@ -65,8 +80,19 @@ def train(env: gym.Env, policy: Policy, value: Value,
                 rtgs = np.cumsum(rew_list).tolist()
                 rtgs.reverse()
 
+                # compute values
+                val_list = value.get_value(obs_list + [obs])
+
+                # compute temporal difference (TD) residuals
+                td_array = np.array([r + gamma * v_next - v for r, v, v_next 
+                           in zip(rew_list, val_list[:-1], val_list[1:])])
+                
+                # compute advantages
+                adv_array = gae_matrix[:ep_len, :ep_len] @ td_array
+
                 # update lists
                 rtg_list += rtgs
+                adv_list += adv_array.tolist()
                 ep_len_list.append(ep_len) 
 
                 # reset episode
@@ -80,22 +106,25 @@ def train(env: gym.Env, policy: Policy, value: Value,
 
         # batch tensors
         obs_ten = torch.from_numpy(np.asarray(obs_list, dtype=np.float32))
-        act_ten = torch.as_tensor(act_list, dtype=torch.int)
-        rtg_ten = torch.as_tensor(rtg_list, dtype=torch.float)
-        val_ten = value(obs_ten).squeeze()
-        weight_ten = torch.as_tensor([r - v for r, v in zip(rtg_ten, val_ten)])
+        act_ten = torch.tensor(act_list, dtype=torch.int)
+        rtg_ten = torch.tensor(rtg_list, dtype=torch.float)
+        adv_ten = torch.tensor(adv_list, dtype=torch.float)
 
         # policy gradient ascent
         opt_pol.zero_grad()
-        obj_pol = compute_policy_objective(obs_ten, act_ten, weight_ten)
+        obj_pol = compute_policy_objective(obs_ten, act_ten, adv_ten)
         obj_pol.backward()
         opt_pol.step()
 
         # value function gradient descent
-        opt_val.zero_grad()
-        obj_val = compute_value_objective(val_ten, rtg_ten)
-        obj_val.backward()
-        opt_val.step()
+        for i in range(val_train_steps):
+            opt_val.zero_grad()
+            val_ten = value(obs_ten).squeeze()
+            obj_val = compute_value_objective(val_ten, rtg_ten)
+            obj_val.backward()
+            opt_val.step()
+            if i % 10 == 0:
+                print(f'    obj_v: {obj_val}')
 
         return obj_pol.item(), obj_val.item(), ep_len_list 
 
@@ -109,18 +138,23 @@ def train(env: gym.Env, policy: Policy, value: Value,
               f'obj_pol = {obj_pol:7.2f}, obj_v = {obj_val:7.2f}, '
               f'Avg Episode Len = {avg_ep_len:5.1f}')
         
+    env.close()
+        
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
 
     env = gym.make('CartPole-v1')
     policy = Policy((4, 32, 2))
-    value = Value((4,32,1))
+    value = Value((4, 32, 1))
 
-    parser.add_argument('--lr_pol', type=float, default=0.01)
-    parser.add_argument('--lr_val', type=float, default=0.01)
+    parser.add_argument('--lr_pol', type=float, default=1e-2)
+    parser.add_argument('--lr_val', type=float, default=1e-3)
     parser.add_argument('--n_batches', type=int, default=50)
     parser.add_argument('--batch_size', type=int, default=5000)
+    parser.add_argument('--val_train_steps', type=int, default=80)
+    parser.add_argument('--gamma', type=float, default=0.99)
+    parser.add_argument('--lambd', type=float, default=0.97)
     parser.add_argument('--train_eps', type=int, default=10)
 
     args = parser.parse_args()
@@ -133,10 +167,9 @@ if __name__ == '__main__':
     
     # Train
     print('----------------------- Training -----------------------')
-    train(env, policy, value, args.lr_pol, args.lr_val, 
-          args.n_batches, args.batch_size)
+    vpg(env, policy, value, args.lr_pol, args.lr_val, args.n_batches, 
+        args.batch_size, args.val_train_steps, args.gamma, args.lambd)
     
     # Test
     mean, std = test(env, policy, args.train_eps)
     print(f'\nAfter training: Avg Episode Len {mean:5.1f} +/- {std:4.1f}\n')
-

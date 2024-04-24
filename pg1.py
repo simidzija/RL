@@ -7,7 +7,7 @@ import gymnasium as gym
 from model import Policy
 from testing import test
 
-def train(env: gym.Env, policy: Policy, lr: float, 
+def pg1(env: gym.Env, policy: Policy, lr: float, 
           n_batches: int, batch_size: int):
 
     # policy optimizer
@@ -29,7 +29,7 @@ def train(env: gym.Env, policy: Policy, lr: float,
         # initialize batch
         obs_list = []          
         act_list = []           
-        ret_list = []           
+        rtg_list = []           
         ep_len_list = []
         batch = 0
 
@@ -55,9 +55,13 @@ def train(env: gym.Env, policy: Policy, lr: float,
             # if episode is over
             if term or trunc or batch > batch_size:
                 
+                # compute rtgs
+                rew_list.reverse()
+                rtgs = np.cumsum(rew_list).tolist()
+                rtgs.reverse()
+
                 # update lists
-                ret = sum(rew_list)
-                ret_list += [ret] * ep_len
+                rtg_list += rtgs
                 ep_len_list.append(ep_len) 
 
                 # reset episode
@@ -71,7 +75,7 @@ def train(env: gym.Env, policy: Policy, lr: float,
 
         # compute loss and perform gradient ascent
         optim.zero_grad()
-        objective = compute_objective(obs_list, act_list, ret_list)
+        objective = compute_objective(obs_list, act_list, rtg_list)
         objective.backward()
         optim.step()
 
@@ -108,7 +112,7 @@ if __name__ == '__main__':
     
     # Train
     print('----------------------- Training -----------------------')
-    train(env, policy, args.lr, args.n_batches, args.batch_size)
+    pg1(env, policy, args.lr, args.n_batches, args.batch_size)
     
     # Test
     mean, std = test(env, policy, args.train_eps)

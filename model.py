@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from torch.distributions import Categorical
 import torch.nn as nn
 
@@ -19,6 +20,7 @@ class Policy(MLP):
     def __init__(self, neurons):
         super().__init__(neurons)
 
+    @torch.no_grad
     def get_action(self, obs):
         obs = torch.as_tensor(obs, dtype=torch.float)
         logits = self(obs)
@@ -28,4 +30,9 @@ class Policy(MLP):
 class Value(MLP):
     def __init__(self, neurons):
         super().__init__(neurons)
+
+    @torch.no_grad
+    def get_value(self, obs):
+        obs = torch.as_tensor(np.asarray(obs), dtype=torch.float)
+        return self(obs).squeeze().tolist()
         
