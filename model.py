@@ -26,6 +26,17 @@ class Policy(MLP):
         logits = self(obs)
         dist = Categorical(logits=logits)
         return dist.sample().item()
+    
+    def get_prob(self, obs, act, compute_grads=True):
+        obs = torch.as_tensor(obs, dtype=torch.float)
+        act = torch.as_tensor(act, dtype=torch.int64)
+        if compute_grads:
+            logits = self(obs)
+        else:
+            with torch.no_grad():
+                logits = self(obs)
+        dist = Categorical(logits=logits)
+        return torch.gather(dist.probs, 1, act.unsqueeze(1)).squeeze()
 
 class Value(MLP):
     def __init__(self, neurons):
@@ -35,4 +46,3 @@ class Value(MLP):
     def get_value(self, obs):
         obs = torch.as_tensor(np.asarray(obs), dtype=torch.float)
         return self(obs).squeeze().tolist()
-        

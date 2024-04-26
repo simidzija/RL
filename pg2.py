@@ -11,7 +11,7 @@ from testing import test
 def pg2(env: gym.Env, policy: Policy, value: Value, 
           lr_pol: float, lr_val: float, n_batches: int, batch_size: int):
 
-    # optimizers (j = policy objective, v = value function)
+    # optimizers
     opt_pol = Adam(policy.parameters(), lr=lr_pol, maximize=True)
     opt_val = Adam(value.parameters(), lr=lr_val)
     
