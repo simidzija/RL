@@ -1,3 +1,16 @@
+"""
+pg0.py
+
+--------------------------------------------------------------------------------
+                        Policy Gradient - Version 0
+--------------------------------------------------------------------------------
+
+Implementation of the simplest policy gradient algorithm, using the full 
+episodic return when estimating the gradient of the policy objective function. 
+This implementation is compatible with RL enviornments provided by the 
+`gymnasium` library.
+"""
+
 import numpy as np
 import torch
 from torch.optim import Adam

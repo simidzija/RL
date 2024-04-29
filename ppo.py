@@ -1,8 +1,26 @@
+"""
+ppo.py
+
+--------------------------------------------------------------------------------
+                        Proximal Policy Optimization
+--------------------------------------------------------------------------------
+
+Implementation of the proximal policy optimization (PPO) algorithm, including 
+generalized advantage estimation (GAE) for the advantage function. This 
+implementation is compatible with RL enviornments provided by the `gymnasium` 
+library.
+
+We test the algorithm on the `CartPole-v1` environment. After 10 independent 
+training runs the algorithm achieves a mean score of 478 with a standard 
+deviation of 24. It commonly achieves a perfect score of 500 in less than 50 
+epochs of training. From experimention the algorithm appears to be more robust 
+to the choice of hyperparameters as compared to VPG.
+"""
+
 import numpy as np
 import torch
 from torch import Tensor
 from torch.optim import Adam
-from torch.distributions import Categorical
 from torch.nn import MSELoss
 import gymnasium as gym
 
@@ -67,7 +85,7 @@ def vpg(
         batch = 0
 
         # initialize episode
-        obs, _ = env.reset()
+        obs, info = env.reset()
         rew_list = []
         ep_len = 0
 
@@ -82,7 +100,7 @@ def vpg(
 
             # action
             act = policy.get_action(obs)
-            obs, rew, term, trunc, _ = env.step(act)
+            obs, rew, term, trunc, info = env.step(act)
             act_list.append(act)
 
             # reward
@@ -117,7 +135,7 @@ def vpg(
                 ep_len_list.append(ep_len) 
 
                 # reset episode
-                obs, _ = env.reset()
+                obs, info = env.reset()
                 rew_list = []
                 ep_len = 0
 
@@ -139,8 +157,6 @@ def vpg(
             obj_pol = compute_obj_pol(prob_old, prob_new, adv_ten)
             obj_pol.backward()
             opt_pol.step()
-            if i % 1 == 0:
-                print(f'    obj_pol: {obj_pol}')
             # break if KL div too large
             kldiv = (prob_old * (prob_old / prob_new).log()).mean()
             if kldiv > kl_cutoff:
@@ -153,8 +169,6 @@ def vpg(
             obj_val = compute_obj_val(val_ten, rtg_ten)
             obj_val.backward()
             opt_val.step()
-            if i % 1 == 0:
-                print(f'    obj_val: {obj_val}')
 
         return obj_pol.item(), obj_val.item(), ep_len_list 
 
@@ -180,16 +194,16 @@ if __name__ == '__main__':
 
     parser.add_argument('--lr_pol', type=float, default=1e-3)
     parser.add_argument('--lr_val', type=float, default=1e-3)
-    parser.add_argument('--n_batches', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=2000)
+    parser.add_argument('--n_batches', type=int, default=50)
+    parser.add_argument('--batch_size', type=int, default=5000)
     parser.add_argument('--pol_train_steps', type=int, default=10)
     parser.add_argument('--val_train_steps', type=int, default=10)
     parser.add_argument('--epsilon', type=int, default=0.1)
-    parser.add_argument('--gamma', type=float, default=0.99)
+    parser.add_argument('--gamma', type=float, default=1.0)
     parser.add_argument('--lambd', type=float, default=1.0)
-    parser.add_argument('--kl_cutoff', type=float, default=0.025)
+    parser.add_argument('--kl_cutoff', type=float, default=0.02)
     parser.add_argument('--train_eps', type=int, default=10)
-    parser.add_argument('--completion_reward', type=float, default=50)
+    parser.add_argument('--completion_reward', type=float, default=0.)
 
     args = parser.parse_args()
 

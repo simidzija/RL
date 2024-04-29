@@ -1,3 +1,11 @@
+"""
+model.py
+
+Definition of the MLP class for constructing a simple feed-forward NN, and the 
+Policy and Value classes, which wrap the MLP class and provide useful methods 
+for policy and value functions.
+"""
+
 import torch
 import numpy as np
 from torch.distributions import Categorical

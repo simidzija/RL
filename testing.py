@@ -1,3 +1,9 @@
+"""
+testing.py
+
+Defines the `test` function, for testing a policy in a gymnasium environment.
+"""
+
 import numpy as np
 import gymnasium as gym
 

@@ -1,3 +1,19 @@
+"""
+vpg.py
+
+--------------------------------------------------------------------------------
+                        Vanilla Policy Gradient
+--------------------------------------------------------------------------------
+
+Implementation of the vanilla policy gradient (VPG) algorithm, using 
+generalized advantage estimation (GAE) to approximate the advantage function. 
+The use of the advantage function in estimating the policy gradient is natural, 
+because it ensures that actions considered "advantageous" (having a positive 
+advantage) lead to contributions to the policy gradient which increase the 
+likelihood of those actions occurring in the future. This implementation is 
+compatible with RL enviornments provided by the `gymnasium` library.
+"""
+
 import numpy as np
 import torch
 from torch.optim import Adam
@@ -123,8 +139,6 @@ def vpg(env: gym.Env, policy: Policy, value: Value,
             obj_val = compute_value_objective(val_ten, rtg_ten)
             obj_val.backward()
             opt_val.step()
-            if i % 10 == 0:
-                print(f'    obj_v: {obj_val}')
 
         return obj_pol.item(), obj_val.item(), ep_len_list 
 

@@ -1,3 +1,19 @@
+"""
+pg2.py
+
+--------------------------------------------------------------------------------
+                        Policy Gradient - Version 2
+--------------------------------------------------------------------------------
+
+Implementation of the policy gradient algorithm, using reward-to-go and a 
+value-function baseline when estimating the gradient of the policy objective 
+function. Using reward-to-go rather than the full episodic return and 
+subtracting off the value-function baseline are both intended to reduce 
+variance when estimating the policy gradient using the sample mean. This 
+implementation is compatible with RL enviornments provided by the `gymnasium` 
+library.
+"""
+
 import numpy as np
 import torch
 from torch.optim import Adam
